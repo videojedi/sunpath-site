@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sun Path — Video Walrus</title>
+<meta name="description" content="Interactive sun-path tool: solar azimuth and elevation through the day and across the year, for any latitude. South-facing and looking-up views, with a live 'now' mode.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0a0c; --panel:#111114; --panel2:#16161a; --border:#222228; --border2:#2a2a30;
+  --txt:#e8e6e3; --txt2:#8a8a8e; --txt3:#55555a; --accent:#c8f03e; --accent-dim:#a5c832;
+  --summer:#EF9F27; --equinox:#5DCAA5; --winter:#85B7EB; --sun:#F0997B;
+  --mono:'Space Mono',ui-monospace,monospace; --body:'DM Sans',system-ui,sans-serif;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html{-webkit-font-smoothing:antialiased;}
+body{
+  background:var(--bg); color:var(--txt); font-family:var(--body); line-height:1.6; min-height:100vh;
+  background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);
+  background-size:40px 40px; background-position:center;
+}
+.shade{min-height:100vh;background:radial-gradient(ellipse at 50% -10%,rgba(200,240,62,0.05),transparent 55%),linear-gradient(180deg,rgba(10,10,12,0.85),rgba(10,10,12,0.97));}
+.wrap{max-width:980px;margin:0 auto;padding:clamp(1.25rem,4vw,3rem) clamp(1rem,4vw,2rem) 4rem;}
+header{margin-bottom:2rem;opacity:0;animation:rise .6s ease forwards;}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:10px;}
+.eyebrow::before{content:"";width:22px;height:1px;background:var(--accent);}
+h1{font-size:clamp(2rem,6vw,3.2rem);font-weight:700;line-height:1.04;letter-spacing:-.02em;margin:.5rem 0 .4rem;}
+.sub{color:var(--txt2);max-width:60ch;font-size:15px;}
+.sub b{color:var(--txt);font-weight:500;}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:clamp(1rem,3vw,1.5rem);opacity:0;animation:rise .6s ease forwards;}
+.panel+.panel{margin-top:1.25rem;}
+.d1{animation-delay:.06s}.d2{animation-delay:.12s}.d3{animation-delay:.18s}
+.ctrl{display:flex;align-items:center;gap:14px;}
+.ctrl+.ctrl{margin-top:14px;}
+.ctrl label{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt2);min-width:96px;}
+.ctrl output{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--accent);min-width:140px;text-align:right;}
+input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:4px;background:var(--border2);outline:none;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;border:3px solid var(--bg);}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;border:3px solid var(--bg);}
+.toggle{display:inline-flex;border:1px solid var(--border2);border-radius:9px;overflow:hidden;}
+.toggle button{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;background:transparent;color:var(--txt2);border:none;padding:8px 14px;cursor:pointer;transition:.15s;}
+.toggle button.on{background:var(--accent);color:#10130a;font-weight:700;}
+.act{font-family:var(--mono);font-size:12px;background:transparent;color:var(--txt);border:1px solid var(--border2);border-radius:8px;padding:8px 14px;cursor:pointer;transition:.15s;white-space:nowrap;}
+.act:hover{border-color:var(--accent);color:var(--accent);}
+.pill{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;padding:5px 11px;border-radius:20px;border:1px solid var(--accent);color:#10130a;background:var(--accent);display:inline-flex;align-items:center;gap:6px;}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:#10130a;animation:blink 1.6s steps(1,end) infinite;}
+.pill.off{display:none;}
+.geomsg{font-family:var(--mono);font-size:11px;color:var(--txt2);}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-top:2px;}
+.card{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+.card .k{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--txt3);}
+.card .v{font-family:var(--mono);font-size:19px;font-weight:700;margin-top:3px;color:var(--txt);}
+.legend{display:flex;flex-wrap:wrap;gap:16px;font-family:var(--mono);font-size:11px;color:var(--txt2);margin:2px 0 14px;}
+.legend span{display:flex;align-items:center;gap:6px;}
+.sw{width:16px;height:3px;border-radius:2px;}.dot{width:11px;height:11px;border-radius:50%;}
+svg{width:100%;height:auto;display:block;}
+.cap{font-family:var(--mono);font-size:11px;letter-spacing:.05em;color:var(--txt2);text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.cap::before{content:"";width:6px;height:6px;background:var(--accent);border-radius:50%;}
+.polarwrap{max-width:420px;margin:0 auto;}
+footer{margin-top:2.5rem;color:var(--txt3);font-size:13px;border-top:1px solid var(--border);padding-top:1.25rem;}
+footer a{color:var(--accent-dim);text-decoration:none;}footer a:hover{text-decoration:underline;}
+.note{font-size:13px;color:var(--txt2);margin-top:6px;}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes blink{0%,50%{opacity:1}51%,100%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;opacity:1!important;transform:none!important}}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0;}
+</style>
+</head>
+<body>
+<div class="shade">
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Video Walrus &middot; Tools</div>
+  <h1>Sun Path</h1>
+  <p class="sub">Solar <b>azimuth</b> and <b>elevation</b> through the day and across the year. Opens on <b>today, now</b> for <b>Cublington, Buckinghamshire</b> &mdash; or tap <b>Use my location</b>. Drag latitude to explore other places.</p>
+</header>
+
+<section class="panel d1" aria-label="Controls">
+  <div class="ctrl">
+    <label for="lat">Latitude</label>
+    <input type="range" id="lat" min="0" max="60" step="0.1" value="51.97">
+    <output id="latOut">51.97 &deg;N</output>
+  </div>
+  <div class="ctrl">
+    <label for="doy">Day of year</label>
+    <input type="range" id="doy" min="1" max="365" step="1" value="145">
+    <output id="doyOut">25 May</output>
+  </div>
+  <div class="ctrl">
+    <label for="tod">Time</label>
+    <input type="range" id="tod" min="0" max="24" step="0.1" value="12">
+    <output id="todOut">12:00</output>
+  </div>
+  <div class="ctrl" style="margin-top:16px;">
+    <label>Clock</label>
+    <div class="toggle" role="group" aria-label="Time mode">
+      <button id="mSolar" class="on" type="button">Solar</button>
+      <button id="mClock" type="button">Clock</button>
+    </div>
+  </div>
+  <div class="ctrl" style="margin-top:16px;">
+    <label>Snap</label>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;flex:1;">
+      <button id="btnNow" class="act" type="button">Now</button>
+      <button id="btnGeo" class="act" type="button">Use my location</button>
+      <span id="livePill" class="pill">Live</span>
+      <span id="geoMsg" class="geomsg"></span>
+    </div>
+  </div>
+</section>
+
+<section class="panel d2" aria-label="Readout">
+  <div class="cards">
+    <div class="card"><div class="k">Sun position</div><div class="v" id="cardPos">&mdash;</div></div>
+    <div class="card"><div class="k">Noon elevation</div><div class="v" id="cardNoon">&mdash;</div></div>
+    <div class="card"><div class="k">Sunrise &rarr; sunset</div><div class="v" id="cardRise">&mdash;</div></div>
+    <div class="card"><div class="k">Day length</div><div class="v" id="cardLen">&mdash;</div></div>
+  </div>
+</section>
+
+<section class="panel d3" aria-label="Diagrams">
+  <div class="legend">
+    <span><span class="sw" style="background:var(--summer)"></span>Summer solstice</span>
+    <span><span class="sw" style="background:var(--equinox)"></span>Equinox</span>
+    <span><span class="sw" style="background:var(--winter)"></span>Winter solstice</span>
+    <span><span class="sw" style="background:var(--accent)"></span>Selected day</span>
+    <span><span class="dot" style="background:var(--sun)"></span>Sun now</span>
+  </div>
+
+  <div class="cap">Facing south &middot; elevation vs azimuth</div>
+  <svg id="plot" viewBox="0 0 680 430" role="img" aria-label="Elevation versus azimuth, facing south"><title>Elevation versus azimuth, facing south</title></svg>
+
+  <div class="cap" style="margin-top:22px;">Looking straight up &middot; polar</div>
+  <div class="polarwrap">
+    <svg id="polar" viewBox="0 0 360 384" role="img" aria-label="Polar sun path looking straight up"><title>Polar sun path looking up</title></svg>
+  </div>
+</section>
+
+<footer>
+  <p>Positions use a standard solar-geometry model (declination, hour angle, equation of time). <b style="color:var(--txt2)">Solar</b> mode shows sundial time (noon = sun due south); <b style="color:var(--txt2)">Clock</b> mode applies the equation of time, the location's longitude, and your device's time zone (so daylight-saving is handled automatically). The live "now" marker reads your device clock. Accurate to within a couple of minutes &mdash; good for planning, not for navigation. Location is read only when you tap the button and is never stored or sent anywhere.</p>
+  <p class="note">Built by <a href="https://videowalrus.com">Video Walrus</a>. Hosted on Cloudflare Pages.</p>
+</footer>
+
+</div>
+</div>
+
+<script>
+(function(){
+  var NS="http://www.w3.org/2000/svg";
+  var plot=document.getElementById("plot"), polar=document.getElementById("polar");
+  var rad=function(d){return d*Math.PI/180;}, deg=function(r){return r*180/Math.PI;};
+  var clamp=function(v,a,b){return Math.max(a,Math.min(b,v));};
+
+  var L=46,T=14,Bm=54,Rm=16,W=680,H=430,plotW=W-L-Rm,plotH=H-T-Bm;
+  var AZMIN=20,AZMAX=340,ELMAX=64;
+  var X=function(az){return L+(az-AZMIN)/(AZMAX-AZMIN)*plotW;};
+  var Y=function(el){return T+plotH-(clamp(el,0,ELMAX)/ELMAX)*plotH;};
+  var cx=180,cy=180,Rp=148;
+  var rEl=function(el){return (90-clamp(el,0,90))/90*Rp;};
+  function pP(az,el){var r=rEl(el),a=rad(az);return [cx+r*Math.sin(a),cy-r*Math.cos(a)];}
+
+  var COL={summer:"#EF9F27",equinox:"#5DCAA5",winter:"#85B7EB",sel:"#c8f03e",sun:"#F0997B",grid:"#222228",axis:"#8a8a8e",axis2:"#55555a"};
+  var LON=-0.80;
+  var mode="solar", liveMode=false, liveTimer=null;
+
+  function mk(tag,a){var e=document.createElementNS(NS,tag);for(var k in a)e.setAttribute(k,a[k]);return e;}
+  function decl(N){return 23.44*Math.sin(2*Math.PI/365*(N-81));}
+  function eot(N){var B=2*Math.PI*(N-81)/364;return 9.87*Math.sin(2*B)-7.53*Math.cos(B)-1.5*Math.sin(B);}
+  function dateFromDOY(N){var y=new Date().getFullYear();var d=new Date(y,0,1);d.setDate(N);return d;}
+  function zoneAbbr(N){try{var d=dateFromDOY(N);var p=new Intl.DateTimeFormat('en-GB',{timeZoneName:'short'}).formatToParts(d);for(var i=0;i<p.length;i++)if(p[i].type==='timeZoneName')return p[i].value;}catch(e){}return 'local';}
+  function clockFromSolar(t,N){var d=dateFromDOY(N);var tz=d.getTimezoneOffset();var utc=t-(LON/15)-eot(N)/60;return utc-tz/60;}
+  function nowState(){var n=new Date();var s=new Date(n.getFullYear(),0,1);var N=Math.min(365,Math.floor((n-s)/86400000)+1);var local=n.getHours()+n.getMinutes()/60+n.getSeconds()/3600;var utc=local+n.getTimezoneOffset()/60;var t=utc+(LON/15)+eot(N)/60;while(t<0)t+=24;while(t>=24)t-=24;return {N:N,t:t};}
+
+  function sun(lat,dec,t){
+    var f=rad(lat),d=rad(dec),Ha=rad(15*(t-12));
+    var sE=Math.sin(f)*Math.sin(d)+Math.cos(f)*Math.cos(d)*Math.cos(Ha);
+    var el=Math.asin(clamp(sE,-1,1)),cE=Math.cos(el);
+    var sA=-Math.cos(d)*Math.sin(Ha)/cE;
+    var cA=(Math.sin(d)-Math.sin(f)*sE)/(Math.cos(f)*cE);
+    var az=deg(Math.atan2(sA,cA));if(az<0)az+=360;
+    return {el:deg(el),az:az};
+  }
+  function dayInfo(lat,dec){
+    var x=-Math.tan(rad(lat))*Math.tan(rad(dec));
+    if(x<=-1)return {up:true,never:false,rise:0,set:24,len:24};
+    if(x>=1)return {up:false,never:true,rise:null,set:null,len:0};
+    var H0=deg(Math.acos(x));
+    return {up:false,never:false,rise:12-H0/15,set:12+H0/15,len:2*H0/15};
+  }
+  function polyCart(lat,dec){var s="";for(var t=0;t<=24.0001;t+=0.1){var p=sun(lat,dec,t);if(p.el>=0&&p.az>=AZMIN-2&&p.az<=AZMAX+2)s+=X(p.az).toFixed(1)+","+Y(p.el).toFixed(1)+" ";}return s.trim();}
+  function polyPolar(lat,dec){var s="";for(var t=0;t<=24.0001;t+=0.1){var p=sun(lat,dec,t);if(p.el>=0){var q=pP(p.az,p.el);s+=q[0].toFixed(1)+","+q[1].toFixed(1)+" ";}}return s.trim();}
+  var MD=[31,28,31,30,31,30,31,31,30,31,30,31],MN=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  function fmtDate(N){var n=N,m=0;while(n>MD[m]){n-=MD[m];m++;}return n+" "+MN[m];}
+  function fmtTime(h){if(h==null)return "\u2014";if(h<0)h+=24;if(h>=24)h-=24;var H=Math.floor(h),M=Math.round((h-H)*60);if(M===60){H++;M=0;}if(H>=24)H-=24;return (H<10?"0":"")+H+":"+(M<10?"0":"")+M;}
+
+  var refs=[[355,COL.winter],[81,COL.equinox],[172,COL.summer]];
+
+  function txt(parent,x,y,str,fill,size,anchor,weight){var e=mk("text",{x:x,y:y,fill:fill,"font-family":"'Space Mono',monospace","font-size":size,"text-anchor":anchor||"start"});if(weight)e.setAttribute("font-weight",weight);e.textContent=str;parent.appendChild(e);return e;}
+
+  function drawCart(lat,N,t){
+    while(plot.firstChild)plot.removeChild(plot.firstChild);
+    var i,e,els=[0,10,20,30,40,50,60];
+    for(i=0;i<els.length;i++){e=els[i];plot.appendChild(mk("line",{x1:L,y1:Y(e),x2:L+plotW,y2:Y(e),stroke:COL.grid,"stroke-width":e===0?1.4:0.7}));txt(plot,L-6,Y(e)+4,e+"\u00b0",COL.axis,"11",'end');}
+    var azg=[30,60,90,120,150,180,210,240,270,300,330];
+    for(i=0;i<azg.length;i++){var a=azg[i];plot.appendChild(mk("line",{x1:X(a),y1:T,x2:X(a),y2:T+plotH,stroke:COL.grid,"stroke-width":a===180?1.2:0.6}));}
+    var comp=[[90,"E"],[135,"SE"],[180,"S"],[225,"SW"],[270,"W"]];
+    for(i=0;i<comp.length;i++){var c=comp[i];txt(plot,X(c[0]),T+plotH+18,c[1],"#e8e6e3","12",'middle','700');txt(plot,X(c[0]),T+plotH+32,c[0]+"\u00b0",COL.axis2,"10",'middle');}
+    txt(plot,L+plotW/2,H-4,"AZIMUTH \u2014 EAST LEFT, WEST RIGHT",COL.axis,"10",'middle');
+    var yl=txt(plot,14,T+plotH/2,"ELEVATION",COL.axis,"10",'middle');yl.setAttribute("transform","rotate(-90 14 "+(T+plotH/2)+")");
+    for(i=0;i<refs.length;i++){var p=polyCart(lat,decl(refs[i][0]));if(p)plot.appendChild(mk("polyline",{points:p,fill:"none",stroke:refs[i][1],"stroke-width":2,"stroke-linejoin":"round","stroke-opacity":0.95}));}
+    for(var h=4;h<=20;h+=2){var ps=sun(lat,decl(172),h);if(ps.el>0.5&&ps.az>=AZMIN&&ps.az<=AZMAX){plot.appendChild(mk("circle",{cx:X(ps.az),cy:Y(ps.el),r:2.4,fill:COL.summer}));if(h%6===0||h===12){var lbl=(mode==="clock")?fmtTime(clockFromSolar(h,172)):fmtTime(h);txt(plot,X(ps.az),Y(ps.el)-7,lbl,COL.axis,"10",'middle');}}}
+    var psel=polyCart(lat,decl(N));if(psel)plot.appendChild(mk("polyline",{points:psel,fill:"none",stroke:COL.sel,"stroke-width":3,"stroke-linejoin":"round"}));
+    var now=sun(lat,decl(N),t);
+    if(now.el>=0&&now.az>=AZMIN&&now.az<=AZMAX){plot.appendChild(mk("circle",{cx:X(now.az),cy:Y(now.el),r:9,fill:COL.sun,"fill-opacity":0.22}));plot.appendChild(mk("circle",{cx:X(now.az),cy:Y(now.el),r:4.6,fill:COL.sun}));}
+  }
+
+  function drawPolar(lat,N,t){
+    while(polar.firstChild)polar.removeChild(polar.firstChild);
+    var i,rings=[0,30,60];
+    for(i=0;i<rings.length;i++){var e=rings[i];polar.appendChild(mk("circle",{cx:cx,cy:cy,r:rEl(e),fill:"none",stroke:COL.grid,"stroke-width":e===0?1.4:0.7}));txt(polar,cx+3,cy-rEl(e)+12,e+"\u00b0",COL.axis2,"10",'start');}
+    polar.appendChild(mk("circle",{cx:cx,cy:cy,r:1.8,fill:COL.axis2}));
+    var sp=[0,45,90,135,180,225,270,315];
+    for(i=0;i<sp.length;i++){var q=pP(sp[i],0);polar.appendChild(mk("line",{x1:cx,y1:cy,x2:q[0],y2:q[1],stroke:COL.grid,"stroke-width":0.5}));}
+    var cl=[[0,"N"],[90,"E"],[180,"S"],[270,"W"]];
+    for(i=0;i<cl.length;i++){var ang=rad(cl[i][0]),rr=Rp+15;txt(polar,cx+rr*Math.sin(ang),cy-rr*Math.cos(ang)+4,cl[i][1],"#e8e6e3","12",'middle','700');}
+    for(i=0;i<refs.length;i++){var p=polyPolar(lat,decl(refs[i][0]));if(p)polar.appendChild(mk("polyline",{points:p,fill:"none",stroke:refs[i][1],"stroke-width":2,"stroke-linejoin":"round","stroke-opacity":0.95}));}
+    var psel=polyPolar(lat,decl(N));if(psel)polar.appendChild(mk("polyline",{points:psel,fill:"none",stroke:COL.sel,"stroke-width":3,"stroke-linejoin":"round"}));
+    var now=sun(lat,decl(N),t);
+    if(now.el>=0){var w=pP(now.az,now.el);polar.appendChild(mk("circle",{cx:w[0],cy:w[1],r:9,fill:COL.sun,"fill-opacity":0.22}));polar.appendChild(mk("circle",{cx:w[0],cy:w[1],r:4.6,fill:COL.sun}));}
+    txt(polar,cx,376,"HORIZON AT EDGE \u00b7 ZENITH AT CENTRE",COL.axis,"10",'middle');
+  }
+
+  function draw(){
+    var lat=+document.getElementById("lat").value;
+    var N=+document.getElementById("doy").value;
+    var t=+document.getElementById("tod").value;
+    drawCart(lat,N,t);drawPolar(lat,N,t);
+    var dsel=decl(N),now=sun(lat,dsel,t),di=dayInfo(lat,dsel),noon=sun(lat,dsel,12);
+    var conv=function(x){return mode==="clock"?clockFromSolar(x,N):x;};
+    document.getElementById("latOut").innerHTML=lat.toFixed(2)+" &deg;N";
+    document.getElementById("doyOut").textContent=fmtDate(N);
+    document.getElementById("todOut").textContent=fmtTime(conv(t))+(mode==="clock"?(" "+zoneAbbr(N)):" solar");
+    document.getElementById("cardPos").innerHTML=now.el>=0?(Math.round(now.el)+"\u00b0 el / "+Math.round(now.az)+"\u00b0 az"):"below horizon";
+    document.getElementById("cardNoon").innerHTML=(noon.el>0?(Math.round(noon.el*10)/10):0)+"\u00b0";
+    document.getElementById("cardRise").textContent=di.never?"no sunrise":di.up?"midnight sun":(fmtTime(conv(di.rise))+" \u2192 "+fmtTime(conv(di.set)));
+    document.getElementById("cardLen").textContent=di.len.toFixed(1)+" h";
+  }
+
+  function setLive(b){
+    liveMode=b;
+    document.getElementById("livePill").classList.toggle("off",!b);
+    if(b){if(!liveTimer)liveTimer=setInterval(function(){if(liveMode){var s=nowState();document.getElementById("doy").value=s.N;document.getElementById("tod").value=s.t.toFixed(2);draw();}},30000);}
+    else{if(liveTimer){clearInterval(liveTimer);liveTimer=null;}}
+  }
+  function snapNow(){var s=nowState();document.getElementById("doy").value=s.N;document.getElementById("tod").value=s.t.toFixed(2);setLive(true);draw();}
+
+  function geo(){
+    var msg=document.getElementById("geoMsg");
+    if(!navigator.geolocation){msg.textContent="geolocation unavailable";return;}
+    msg.textContent="locating\u2026";
+    navigator.geolocation.getCurrentPosition(function(pos){
+      var la=pos.coords.latitude, lo=pos.coords.longitude; LON=lo;
+      document.getElementById("lat").value=clamp(la,0,60).toFixed(2);
+      if(la<0)msg.textContent="southern hemisphere \u2014 view is north-facing, clamped";
+      else if(la>60)msg.textContent="high latitude \u2014 clamped to 60\u00b0N";
+      else msg.textContent="located: "+la.toFixed(2)+"\u00b0, "+lo.toFixed(2)+"\u00b0";
+      snapNow();
+    },function(err){document.getElementById("geoMsg").textContent="location unavailable";},{enableHighAccuracy:false,timeout:8000,maximumAge:600000});
+  }
+
+  ["lat","doy","tod"].forEach(function(id){document.getElementById(id).addEventListener("input",function(){setLive(false);draw();});});
+  document.getElementById("mSolar").addEventListener("click",function(){mode="solar";this.classList.add("on");document.getElementById("mClock").classList.remove("on");draw();});
+  document.getElementById("mClock").addEventListener("click",function(){mode="clock";this.classList.add("on");document.getElementById("mSolar").classList.remove("on");draw();});
+  document.getElementById("btnNow").addEventListener("click",snapNow);
+  document.getElementById("btnGeo").addEventListener("click",geo);
+
+  snapNow();
+})();
+</script>
+</body>
+</html>
